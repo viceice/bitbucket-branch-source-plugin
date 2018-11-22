@@ -33,6 +33,7 @@ import com.google.common.io.Files;
 import com.google.common.io.Resources;
 import hudson.XmlFile;
 import hudson.security.ACL;
+import hudson.security.ACLContext;
 import hudson.security.AuthorizationStrategy;
 import hudson.security.FullControlOnceLoggedInAuthorizationStrategy;
 import hudson.util.ListBoxModel;
@@ -44,8 +45,6 @@ import java.util.Collections;
 import java.util.List;
 import jenkins.model.Jenkins;
 import org.acegisecurity.AccessDeniedException;
-import org.acegisecurity.context.SecurityContext;
-import org.acegisecurity.context.SecurityContextHolder;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -112,14 +111,12 @@ public class BitbucketEndpointConfigurationTest {
     public void given__newInstance__when__configuredAsAnon__then__permissionError() {
         BitbucketEndpointConfiguration instance = new BitbucketEndpointConfiguration();
         j.jenkins.setAuthorizationStrategy(new FullControlOnceLoggedInAuthorizationStrategy());
-        SecurityContext ctx = ACL.impersonate(Jenkins.ANONYMOUS);
-        try {
+        try (ACLContext context = ACL.as(Jenkins.ANONYMOUS)) {
             instance.setEndpoints(Arrays.<AbstractBitbucketEndpoint>asList(new BitbucketCloudEndpoint(true, "first"),
                     new BitbucketCloudEndpoint(true, "second"), new BitbucketCloudEndpoint(true, "third")));
             assertThat(instance.getEndpoints(), contains(instanceOf(BitbucketCloudEndpoint.class)));
             assertThat(instance.getEndpoints().get(0).getCredentialsId(), is("first"));
         } finally {
-            SecurityContextHolder.setContext(ctx);
             j.jenkins.setAuthorizationStrategy(AuthorizationStrategy.UNSECURED);
         }
     }
@@ -555,8 +552,7 @@ public class BitbucketEndpointConfigurationTest {
         BitbucketEndpointConfiguration instance = new BitbucketEndpointConfiguration();
         instance.setEndpoints(Collections.<AbstractBitbucketEndpoint>singletonList(
                 new BitbucketServerEndpoint("existing", "https://bitbucket.test", false, null)));
-        SecurityContext ctx = ACL.impersonate(Jenkins.ANONYMOUS);
-        try {
+        try (ACLContext context = ACL.as(Jenkins.ANONYMOUS)) {
             assertThat(instance.getEndpointItems(), hasSize(1));
             assertThat(instance.readResolveServerUrl(null), is(BitbucketCloudEndpoint.SERVER_URL));
             assertThat(instance.getEndpointItems(), hasSize(1));
@@ -582,8 +578,6 @@ public class BitbucketEndpointConfigurationTest {
             assertThat(instance.getEndpoints().get(0).getServerUrl(), is("https://bitbucket.test"));
             assertThat(instance.getEndpoints().get(0).isManageHooks(), is(false));
             assertThat(instance.getEndpoints().get(0).getCredentialsId(), is(nullValue()));
-        } finally {
-            SecurityContextHolder.setContext(ctx);
         }
     }
 
