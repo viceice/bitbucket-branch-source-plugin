@@ -23,17 +23,21 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket.endpoints;
 
+import com.cloudbees.jenkins.plugins.bitbucket.server.BitbucketServerWebhookImplementation;
 import com.cloudbees.plugins.credentials.Credentials;
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
 import com.cloudbees.plugins.credentials.domains.Domain;
 import com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl;
+import com.google.common.io.Files;
+import com.google.common.io.Resources;
 import hudson.XmlFile;
 import hudson.security.ACL;
 import hudson.security.AuthorizationStrategy;
 import hudson.security.FullControlOnceLoggedInAuthorizationStrategy;
 import hudson.util.ListBoxModel;
 import java.io.File;
+import java.net.URL;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -615,4 +619,16 @@ public class BitbucketEndpointConfigurationTest {
         assertThat(instance.getEndpoints().get(2).getCredentialsId(), is("third"));
     }
 
+    @Test
+    public void given__serverConfig__without__webhookImplementation__then__usePlugin() throws Exception {
+        final URL configWithoutWebhookImpl = Resources.getResource(getClass(), "config-without-webhook-impl.xml");
+        final File configFile = new File(Jenkins.getInstance().getRootDir(), BitbucketEndpointConfiguration.class.getName() + ".xml");
+        Files.copy(Resources.newInputStreamSupplier(configWithoutWebhookImpl), configFile);
+
+        final BitbucketEndpointConfiguration instance = new BitbucketEndpointConfiguration();
+
+        assertThat(instance.getEndpoints(), contains(instanceOf(BitbucketServerEndpoint.class)));
+        final BitbucketServerEndpoint endpoint = (BitbucketServerEndpoint) instance.getEndpoints().get(0);
+        assertThat(endpoint.getWebhookImplementation(), is(BitbucketServerWebhookImplementation.PLUGIN));
+    }
 }

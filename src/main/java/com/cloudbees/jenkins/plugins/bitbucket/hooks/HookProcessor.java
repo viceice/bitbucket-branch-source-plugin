@@ -70,6 +70,19 @@ public abstract class HookProcessor {
     public abstract void process(HookEventType type, String payload, BitbucketType instanceType, String origin);
 
     /**
+     * See <a href="https://confluence.atlassian.com/bitbucket/event-payloads-740262817.html">Event Payloads</a> for more
+     * information about the payload parameter format.
+     * @param type the type of hook.
+     * @param payload the hook payload
+     * @param instanceType the Bitbucket type that called the hook
+     * @param origin the origin of the event.
+     * @param serverUrl special value for native Bitbucket Server hooks which don't expose the server URL in the payload.
+     */
+    public void process(HookEventType type, String payload, BitbucketType instanceType, String origin, String serverUrl) {
+        process(type, payload, instanceType, origin);
+    }
+
+    /**
      * To be called by implementations once the owner and the repository have been extracted from the payload.
      *
      * @param owner the repository owner as configured in the SCMSource

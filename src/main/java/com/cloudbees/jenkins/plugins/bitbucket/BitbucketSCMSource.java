@@ -512,11 +512,15 @@ public class BitbucketSCMSource extends SCMSource {
     }
 
     public BitbucketApi buildBitbucketClient() {
-        return BitbucketApiFactory.newInstance(getServerUrl(), authenticator(), repoOwner, repository);
+        return buildBitbucketClient(repoOwner, repository);
     }
 
     public BitbucketApi buildBitbucketClient(PullRequestSCMHead head) {
-        return BitbucketApiFactory.newInstance(getServerUrl(), authenticator(), head.getRepoOwner(), head.getRepository());
+        return buildBitbucketClient(head.getRepoOwner(), head.getRepository());
+    }
+
+    public BitbucketApi buildBitbucketClient(String repoOwner, String repository) {
+        return BitbucketApiFactory.newInstance(getServerUrl(), authenticator(), repoOwner, repository);
     }
 
     @Override

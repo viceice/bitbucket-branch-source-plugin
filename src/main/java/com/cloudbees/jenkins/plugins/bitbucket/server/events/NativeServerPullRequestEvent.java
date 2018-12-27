@@ -1,7 +1,7 @@
-/*
+/**
  * The MIT License
  *
- * Copyright (c) 2016, CloudBees, Inc.
+ * Copyright (c) 2016-2018, Yieldlab AG
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,9 +21,16 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package com.cloudbees.jenkins.plugins.bitbucket.server.client.repository;
+package com.cloudbees.jenkins.plugins.bitbucket.server.events;
 
-import com.cloudbees.jenkins.plugins.bitbucket.server.client.PagedApiResponse;
+import com.cloudbees.jenkins.plugins.bitbucket.server.client.pullrequest.BitbucketServerPullRequest;
 
-public class BitbucketServerRepositories extends PagedApiResponse<BitbucketServerRepository> {
+public class NativeServerPullRequestEvent {
+
+    private BitbucketServerPullRequest pullRequest;
+
+    public BitbucketServerPullRequest getPullRequest() {
+        return pullRequest;
+    }
+
 }
