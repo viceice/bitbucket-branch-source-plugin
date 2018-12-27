@@ -33,7 +33,7 @@
   </parent>
 
   <artifactId>cloudbees-bitbucket-branch-source</artifactId>
-  <version>2.3.0</version>
+  <version>${revision}${changelist}</version>
   <packaging>hpi</packaging>
 
   <name>Bitbucket Branch Source Plugin</name>
@@ -49,7 +49,7 @@
   </licenses>
 
   <properties>
-    <revision>2.2.17</revision>
+    <revision>2.3.1</revision>
     <changelist>-SNAPSHOT</changelist>
     <jenkins.version>1.642.3</jenkins.version>
     <java.level>7</java.level>
@@ -80,7 +80,7 @@
     <connection>scm:git:git://github.com/jenkinsci/bitbucket-branch-source-plugin.git</connection>
     <developerConnection>scm:git:git@github.com:jenkinsci/bitbucket-branch-source-plugin.git</developerConnection>
     <url>https://github.com/jenkinsci/bitbucket-branch-source-plugin</url>
-    <tag>cloudbees-bitbucket-branch-source-2.3.0</tag>
+    <tag>${scmTag}</tag>
   </scm>
 
   <dependencyManagement>
