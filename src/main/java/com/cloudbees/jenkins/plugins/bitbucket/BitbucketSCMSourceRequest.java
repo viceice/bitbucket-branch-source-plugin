@@ -23,6 +23,7 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket;
 
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketBranch;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketPullRequest;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
@@ -113,6 +114,19 @@ public class BitbucketSCMSourceRequest extends SCMSourceRequest {
      */
     @CheckForNull
     private Iterable<BitbucketBranch> branches;
+    // TODO private Iterable<BitbucketTag> tags;
+    /**
+     * The BitbucketApi that is used for the request.
+     */
+    private BitbucketApi api;
+    /**
+     * The BitbucketSCMSource that is used for the request.
+     */
+    private final BitbucketSCMSource source;
+    /**
+     * A map serving as a cache of pull request IDs to the full set of data about the pull request.
+     */
+    private final Map<Integer, BitbucketPullRequest> pullRequestData;
     /**
      * The tag details or {@code null} if not {@link #isFetchTags()}.
      */
@@ -130,6 +144,7 @@ public class BitbucketSCMSourceRequest extends SCMSourceRequest {
                                         @NonNull BitbucketSCMSourceContext context,
                                         @CheckForNull TaskListener listener) {
         super(source, context, listener);
+        this.source = source;
         fetchBranches = context.wantBranches();
         fetchTags = context.wantTags();
         fetchOriginPRs = context.wantOriginPRs();
@@ -171,6 +186,7 @@ public class BitbucketSCMSourceRequest extends SCMSourceRequest {
         }
         repoOwner = source.getRepoOwner();
         repository = source.getRepository();
+        pullRequestData = new HashMap<>();
     }
 
     /**
@@ -344,6 +360,30 @@ public class BitbucketSCMSourceRequest extends SCMSourceRequest {
     @NonNull
     public final Iterable<BitbucketPullRequest> getPullRequests() {
         return Util.fixNull(pullRequests);
+    }
+
+    /**
+     * Retrieves the full details of a pull request.
+     * @param id The id of the pull request to retrieve the details about.
+     * @return The {@link BitbucketPullRequest} object.
+     * @throws IOException If the request to retrieve the full details encounters an issue.
+     * @throws InterruptedException If the request to retrieve the full details is interrupted.
+     */
+    @SuppressWarnings("unused") // Used by extension trait plugin
+    public final BitbucketPullRequest getPullRequestById(Integer id) throws IOException, InterruptedException {
+        if (!pullRequestData.containsKey(id)) {
+            pullRequestData.put(id, getBitbucketApiClient().getPullRequestById(id));
+        }
+
+        return pullRequestData.get(id);
+    }
+
+    private final BitbucketApi getBitbucketApiClient() {
+        if (api == null) {
+            api = source.buildBitbucketClient();
+        }
+
+        return api;
     }
 
     /**
