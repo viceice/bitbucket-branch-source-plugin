@@ -23,6 +23,7 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket;
 
+import com.cloudbees.jenkins.plugins.bitbucket.BranchDiscoveryTrait.ExcludeOriginPRBranchesSCMHeadFilter;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketBuildStatus;
 import com.cloudbees.jenkins.plugins.bitbucket.client.BitbucketCloudApiClient;
@@ -97,7 +98,7 @@ public class BitbucketBuildStatusNotifications {
     }
 
     private static void createStatus(@NonNull Run<?, ?> build, @NonNull TaskListener listener,
-                                     @NonNull BitbucketApi bitbucket, @NonNull String hash)
+        @NonNull BitbucketApi bitbucket, @NonNull String key, @NonNull String hash)
             throws IOException, InterruptedException {
 
         String url;
@@ -112,7 +113,6 @@ public class BitbucketBuildStatusNotifications {
             return;
         }
 
-        String key = build.getParent().getFullName(); // use the job full name as the key for the status
         String name = build.getFullDisplayName(); // use the build number as the display name of the status
         BitbucketBuildStatus status;
         Result result = build.getResult();
@@ -153,24 +153,36 @@ public class BitbucketBuildStatusNotifications {
             return;
         }
         BitbucketSCMSource source = (BitbucketSCMSource) s;
-        if (new BitbucketSCMSourceContext(null, SCMHeadObserver.none())
-                .withTraits(source.getTraits())
-                .notificationsDisabled()) {
+        BitbucketSCMSourceContext sourceContext = new BitbucketSCMSourceContext(null,
+            SCMHeadObserver.none()).withTraits(source.getTraits());
+        if (sourceContext.notificationsDisabled()) {
             return;
         }
         SCMRevision r = SCMRevisionAction.getRevision(s, build);
+        if (r == null) {
+            return;
+        }
         String hash = getHash(r);
         if (hash == null) {
             return;
         }
+        boolean shareBuildKeyBetweenBranchAndPR = sourceContext
+            .filters().stream()
+            .anyMatch(filter -> filter instanceof ExcludeOriginPRBranchesSCMHeadFilter);
+
+        String key;
+        BitbucketApi bitbucket;
         if (r instanceof PullRequestSCMRevision) {
             listener.getLogger().println("[Bitbucket] Notifying pull request build result");
-            createStatus(build, listener, source.buildBitbucketClient((PullRequestSCMHead) r.getHead()), hash);
-
+            PullRequestSCMHead head = (PullRequestSCMHead) r.getHead();
+            key = getBuildKey(build, head.getOriginName(), shareBuildKeyBetweenBranchAndPR);
+            bitbucket = source.buildBitbucketClient(head);
         } else {
             listener.getLogger().println("[Bitbucket] Notifying commit build result");
-            createStatus(build, listener, source.buildBitbucketClient(), hash);
+            key = getBuildKey(build, r.getHead().getName(), shareBuildKeyBetweenBranchAndPR);
+            bitbucket = source.buildBitbucketClient();
         }
+        createStatus(build, listener, bitbucket, key, hash);
     }
 
     @CheckForNull
@@ -187,6 +199,25 @@ public class BitbucketBuildStatusNotifications {
             return ((AbstractGitSCMSource.SCMRevisionImpl) revision).getHash();
         }
         return null;
+    }
+
+    private static String getBuildKey(@NonNull Run<?, ?> build, String branch,
+        boolean shareBuildKeyBetweenBranchAndPR) {
+
+        // When the ExcludeOriginPRBranchesSCMHeadFilter filter is active, we want the
+        // build status key to be the same between the branch project and the PR project.
+        // This is to avoid having two build statuses when a branch goes into PR and
+        // it was already built at least once as a branch.
+        // So the key we use is the branch name.
+        String key;
+        if (shareBuildKeyBetweenBranchAndPR) {
+            String folderName = build.getParent().getParent().getFullName();
+            key = String.format("%s/%s", folderName, branch);
+        } else {
+            key = build.getParent().getFullName(); // use the job full name as the key for the status
+        }
+
+        return key;
     }
 
     /**
