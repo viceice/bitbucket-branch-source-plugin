@@ -111,7 +111,9 @@ import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 
 import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class BitbucketCloudApiClient implements BitbucketApi {
 
@@ -188,6 +190,8 @@ public class BitbucketCloudApiClient implements BitbucketApi {
 
         // Create Http client
         HttpClientBuilder httpClientBuilder = HttpClientBuilder.create();
+
+        httpClientBuilder.setKeepAliveStrategy((__, ___) -> MILLISECONDS.convert(5, SECONDS));
         httpClientBuilder.setConnectionManager(connectionManager);
         httpClientBuilder.setConnectionManagerShared(true);
         httpClientBuilder.setRetryHandler(new StandardHttpRequestRetryHandler());
