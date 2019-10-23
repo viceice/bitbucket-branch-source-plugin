@@ -224,11 +224,10 @@ public class BitbucketSCMNavigator extends SCMNavigator {
         this.credentialsId = Util.fixEmpty(credentialsId);
     }
 
-    @SuppressWarnings("unchecked")
     @DataBoundSetter
-    public void setTraits(@NonNull List<SCMTrait> traits) {
+    public void setTraits(@CheckForNull List<SCMTrait<? extends SCMTrait<?>>> traits) {
         // the reduced generics in the method signature are a workaround for JENKINS-26535
-        this.traits = new ArrayList<>((List)/*defensive*/Util.fixNull(traits));
+        this.traits = new ArrayList<>(Util.fixNull(traits));
     }
 
     public String getServerUrl() {
@@ -633,7 +632,7 @@ public class BitbucketSCMNavigator extends SCMNavigator {
 
         public List<NamedArrayList<? extends SCMTraitDescriptor<?>>> getTraitsDescriptorLists() {
             BitbucketSCMSource.DescriptorImpl sourceDescriptor =
-                    Jenkins.getInstance().getDescriptorByType(BitbucketSCMSource.DescriptorImpl.class);
+                    Jenkins.get().getDescriptorByType(BitbucketSCMSource.DescriptorImpl.class);
             List<SCMTraitDescriptor<?>> all = new ArrayList<>();
             all.addAll(
                     SCMNavigatorTrait._for(this, BitbucketSCMNavigatorContext.class, BitbucketSCMSourceBuilder.class));
