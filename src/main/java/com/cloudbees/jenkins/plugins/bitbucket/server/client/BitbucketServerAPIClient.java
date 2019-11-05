@@ -36,6 +36,7 @@ import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRequestException;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketTeam;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketWebHook;
 import com.cloudbees.jenkins.plugins.bitbucket.api.credentials.BitbucketUsernamePasswordAuthenticator;
+import com.cloudbees.jenkins.plugins.bitbucket.avatars.AvatarCacheSource.AvatarImage;
 import com.cloudbees.jenkins.plugins.bitbucket.client.repository.UserRoleInRepository;
 import com.cloudbees.jenkins.plugins.bitbucket.endpoints.AbstractBitbucketEndpoint;
 import com.cloudbees.jenkins.plugins.bitbucket.endpoints.BitbucketEndpointConfiguration;
@@ -61,6 +62,8 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ProxyConfiguration;
 import hudson.Util;
+import java.awt.image.BufferedImage;
+import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -79,6 +82,7 @@ import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.imageio.ImageIO;
 import jenkins.model.Jenkins;
 import jenkins.scm.api.SCMFile;
 import net.sf.json.JSONObject;
@@ -119,6 +123,9 @@ import static java.util.Objects.requireNonNull;
  */
 public class BitbucketServerAPIClient implements BitbucketApi {
 
+    // Max avatar image length in bytes
+    private static final int MAX_AVATAR_SIZE = 16384;
+
     private static final Logger LOGGER = Logger.getLogger(BitbucketServerAPIClient.class.getName());
     private static final String API_BASE_PATH = "/rest/api/1.0";
     private static final String API_REPOSITORIES_PATH = API_BASE_PATH + "/projects/{owner}/repos{?start,limit}";
@@ -132,6 +139,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
     static final String API_BROWSE_PATH = API_REPOSITORY_PATH + "/browse{/path*}{?at}";
     private static final String API_COMMITS_PATH = API_REPOSITORY_PATH + "/commits{/hash}";
     private static final String API_PROJECT_PATH = API_BASE_PATH + "/projects/{owner}";
+    private static final String AVATAR_PATH = API_BASE_PATH + "/projects/{owner}/avatar.png";
     private static final String API_COMMIT_COMMENT_PATH = API_REPOSITORY_PATH + "/commits{/hash}/comments";
     private static final String API_WEBHOOKS_PATH = API_BASE_PATH + "/projects/{owner}/repos/{repo}/webhooks{/id}{?start,limit}";
 
@@ -699,6 +707,28 @@ public class BitbucketServerAPIClient implements BitbucketApi {
     }
 
     /**
+     * Get Team avatar
+     */
+    @Override
+    public AvatarImage getTeamAvatar() throws IOException {
+        if (userCentric) {
+            return null;
+        } else {
+            String url = UriTemplate.fromTemplate(AVATAR_PATH).set("owner", getOwner()).expand();
+            try {
+                BufferedImage response = getImageRequest(url);
+                return new AvatarImage(response, System.currentTimeMillis());
+            } catch (FileNotFoundException e) {
+                return null;
+            } catch (IOException e) {
+                throw new IOException("I/O error when accessing URL: " + url, e);
+            } catch (InterruptedException e) {
+                throw new IOException("InterruptedException when accessing URL: " + url, e);
+            }
+        }
+    }
+
+    /**
      * The role parameter is ignored for Bitbucket Server.
      */
     @NonNull
@@ -804,6 +834,48 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         } finally {
             httpget.releaseConnection();
         }
+    }
+    private BufferedImage getImageRequest(String path) throws IOException, InterruptedException {
+        HttpGet httpget = new HttpGet(this.baseURL + path);
+
+        if (authenticator != null) {
+            authenticator.configureRequest(httpget);
+        }
+
+        try (CloseableHttpClient client = getHttpClient(httpget);
+                CloseableHttpResponse response = client.execute(httpget, context)) {
+            BufferedImage content;
+            long len = response.getEntity().getContentLength();
+            if (len == 0) {
+                content = null;
+            } else {
+                try (InputStream is = response.getEntity().getContent()) {
+                    // Limit avatar size to 16k
+                    int length = MAX_AVATAR_SIZE;
+                    // buffered stream should be no more than 16k if we know the length
+                    // if we don't know the length then 16k is what we will use
+                    length = len > 0 ? Math.min(MAX_AVATAR_SIZE, length) : MAX_AVATAR_SIZE;
+                    BufferedInputStream bis = new BufferedInputStream(is, length);
+                    content = ImageIO.read(bis);
+                }
+            }
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_NOT_FOUND) {
+                throw new FileNotFoundException("URL: " + path);
+            }
+            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                throw new BitbucketRequestException(response.getStatusLine().getStatusCode(),
+                        "HTTP request error. Status: " + response.getStatusLine().getStatusCode() + ": "
+                                + response.getStatusLine().getReasonPhrase() + ".\n" + response);
+            }
+            return content;
+        } catch (BitbucketRequestException | FileNotFoundException e) {
+            throw e;
+        } catch (IOException e) {
+            throw new IOException("Communication error for url: " + path, e);
+        } finally {
+            httpget.releaseConnection();
+        }
+
     }
 
     /**
@@ -1064,5 +1136,4 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         }
         return content;
     }
-
 }

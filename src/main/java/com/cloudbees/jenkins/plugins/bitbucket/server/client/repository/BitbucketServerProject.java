@@ -23,52 +23,15 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket.server.client.repository;
 
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketHref;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketTeam;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.cloudbees.jenkins.plugins.bitbucket.api.AbstractBitbucketTeam;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import java.util.List;
-import java.util.Map;
 
-public class BitbucketServerProject implements BitbucketTeam {
+public class BitbucketServerProject extends AbstractBitbucketTeam {
 
     @JsonProperty("key")
-    private String name;
+    protected String name;
 
     @JsonProperty("name")
-    private String displayName;
+    protected String displayName;
 
-    @JsonProperty("links")
-    @JsonDeserialize(keyAs = String.class, contentUsing = BitbucketHref.Deserializer.class)
-    private Map<String,List<BitbucketHref>> links;
-
-    @Override
-    public String getName() {
-        return name;
-    }
-
-    @Override
-    public String getDisplayName() {
-        return displayName;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public void setDisplayName(String displayName) {
-        this.displayName = displayName;
-    }
-
-    @Override
-    @JsonIgnore
-    public Map<String, List<BitbucketHref>> getLinks() {
-        return links;
-    }
-
-    @JsonIgnore
-    public void setLink(Map<String, List<BitbucketHref>> links) {
-        this.links = links;
-    }
 }

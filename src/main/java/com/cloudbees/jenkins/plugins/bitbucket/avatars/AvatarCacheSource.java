@@ -21,38 +21,51 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package com.cloudbees.jenkins.plugins.bitbucket.api;
+package com.cloudbees.jenkins.plugins.bitbucket.avatars;
 
-import java.util.List;
-import java.util.Map;
+import java.awt.image.BufferedImage;
 
 /**
- * Represents a Bitbucket team (or a Project when working with Bitbucket Server).
+ *
+ * Interface for Avatar Cache Item Source
+ *
  */
-public interface BitbucketTeam {
+public interface AvatarCacheSource {
 
     /**
-     * @return team or project name
+     * Holds Image and lastModified date
      */
-    String getName();
+    public static class AvatarImage {
+        public final BufferedImage image;
+        public final long lastModified;
+
+        public static final AvatarImage EMPTY = new AvatarImage(null, 0);
+
+        public AvatarImage(final BufferedImage image, final long lastModified) {
+            this.image = image;
+            this.lastModified = lastModified;
+        }
+    }
 
     /**
-     * @return team or project display name.
-     */
-    String getDisplayName();
-
-    /**
-     * Gets the links of the project.
      *
-     * @return the links of the project.
+     * Fetch image from source
+     *
+     * @return AvatarImage object
      */
-    Map<String,List<BitbucketHref>> getLinks();
+    public AvatarImage fetch();
 
     /**
-     * Get Link based on name
+     * Get unique hashKey for this item
      *
-     * @param name - link type - one of(self, html, avatar)
-     * @return href string if there is one, else null
+     * @return AvatarImage object
      */
-    String getLink(String name);
+    public String hashKey();
+
+    /**
+     * Make sure we can fetch
+     *
+     * @return true if can fetch
+     */
+    public boolean canFetch();
 }

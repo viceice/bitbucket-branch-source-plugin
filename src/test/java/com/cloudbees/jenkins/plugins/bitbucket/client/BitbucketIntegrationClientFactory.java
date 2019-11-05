@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
+import org.apache.http.HttpHost;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpRequestBase;
@@ -127,7 +128,7 @@ public class BitbucketIntegrationClientFactory {
         }
 
         @Override
-        protected CloseableHttpResponse executeMethod(HttpRequestBase httpMethod) throws InterruptedException, IOException {
+        protected CloseableHttpResponse executeMethod(HttpHost host, HttpRequestBase httpMethod) throws InterruptedException, IOException {
             String path = httpMethod.getURI().toString();
             audit.request(path);
 

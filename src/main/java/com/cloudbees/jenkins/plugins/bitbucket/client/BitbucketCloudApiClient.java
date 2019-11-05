@@ -38,6 +38,7 @@ import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRequestException;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketTeam;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketWebHook;
 import com.cloudbees.jenkins.plugins.bitbucket.api.credentials.BitbucketUsernamePasswordAuthenticator;
+import com.cloudbees.jenkins.plugins.bitbucket.avatars.AvatarCacheSource.AvatarImage;
 import com.cloudbees.jenkins.plugins.bitbucket.client.branch.BitbucketCloudBranch;
 import com.cloudbees.jenkins.plugins.bitbucket.client.branch.BitbucketCloudCommit;
 import com.cloudbees.jenkins.plugins.bitbucket.client.pullrequest.BitbucketPullRequestCommit;
@@ -60,6 +61,8 @@ import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.ProxyConfiguration;
 import hudson.Util;
+import java.awt.image.BufferedImage;
+import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -67,6 +70,8 @@ import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -76,6 +81,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.imageio.ImageIO;
 import jenkins.model.Jenkins;
 import jenkins.scm.api.SCMFile;
 import org.apache.commons.io.IOUtils;
@@ -125,6 +131,8 @@ public class BitbucketCloudApiClient implements BitbucketApi {
     private static final String V2_TEAMS_API_BASE_URL = "https://api.bitbucket.org/2.0/teams";
     private static final String REPO_URL_TEMPLATE = V2_API_BASE_URL + "{/owner,repo}";
     private static final int API_RATE_LIMIT_CODE = 429;
+    // Limit images to 16k
+    private static final int MAX_AVATAR_LENGTH = 16384;
     private static final int MAX_PAGE_LENGTH = 100;
     private static final PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
     private CloseableHttpClient client;
@@ -133,15 +141,17 @@ public class BitbucketCloudApiClient implements BitbucketApi {
     private final String repositoryName;
     private final boolean enableCache;
     private final BitbucketAuthenticator authenticator;
+    private static final Cache<String, BitbucketTeam> cachedTeam = new Cache<>(6, HOURS);
+    private static final Cache<String, AvatarImage> cachedAvatar = new Cache<>(6, HOURS);
+    private static final Cache<String, List<BitbucketCloudRepository>> cachedRepositories = new Cache<>(3, HOURS);
+    private transient BitbucketRepository cachedRepository;
+    private transient String cachedDefaultBranch;
+
     static {
         connectionManager.setDefaultMaxPerRoute(20);
         connectionManager.setMaxTotal(22);
         connectionManager.setSocketConfig(API_HOST, SocketConfig.custom().setSoTimeout(60 * 1000).build());
     }
-    private static final Cache<String, BitbucketTeam> cachedTeam = new Cache<>(6, HOURS);
-    private static final Cache<String, List<BitbucketCloudRepository>> cachedRepositories = new Cache<>(3, HOURS);
-    private transient BitbucketRepository cachedRepository;
-    private transient String cachedDefaultBranch;
 
     public static List<String> stats() {
         List<String> stats = new ArrayList<>();
@@ -454,6 +464,7 @@ public class BitbucketCloudApiClient implements BitbucketApi {
     public List<BitbucketCloudBranch> getTags() throws IOException, InterruptedException {
         return getBranchesByRef("/refs/tags");
     }
+
     /**
      * {@inheritDoc}
      */
@@ -669,6 +680,47 @@ public class BitbucketCloudApiClient implements BitbucketApi {
     }
 
     /**
+     * {@inheritDoc}
+     */
+    @Override
+    @CheckForNull
+    public AvatarImage getTeamAvatar() throws IOException, InterruptedException {
+        try {
+            final BitbucketTeam team = getTeam();
+            final String url = (team!=null) ? team.getLink("avatar") : null;
+            if (url == null) {
+                return AvatarImage.EMPTY;
+            }
+
+            Callable<AvatarImage> request = () -> {
+                try {
+                    BufferedImage avatar = getImageRequest(url);
+                    return new AvatarImage(avatar, System.currentTimeMillis());
+                } catch (FileNotFoundException e) {
+                    LOGGER.log(Level.FINE, "Failed to get avatar for team {0} from URL: " + url,
+                            team.getName());
+                } catch (IOException e) {
+                    throw new IOException("I/O error when parsing response from URL: " + url, e);
+                }
+                return null;
+            };
+
+            try {
+                if (enableCache) {
+                    return cachedAvatar.get(owner, request);
+                } else {
+                    return request.call();
+                }
+            } catch (Exception ex) {
+                return null;
+            }
+        } catch (Exception ex) {
+            LOGGER.log(Level.FINE, "Unexpected exception while loading team avatar: "+ex.getMessage(), ex);
+            throw ex;
+        }
+    }
+
+    /**
      * The role parameter only makes sense when the request is authenticated, so
      * if there is no auth information ({@link #authenticator}) the role will be omitted.
      */
@@ -761,9 +813,18 @@ public class BitbucketCloudApiClient implements BitbucketApi {
 
     @Restricted(ProtectedExternally.class)
     protected CloseableHttpResponse executeMethod(HttpRequestBase httpMethod) throws InterruptedException, IOException {
+        return executeMethod(API_HOST, httpMethod);
+    }
 
-        if (authenticator != null) {
-            authenticator.configureRequest(httpMethod);
+    @Restricted(ProtectedExternally.class)
+    protected CloseableHttpResponse executeMethod(HttpHost host, HttpRequestBase httpMethod) throws InterruptedException, IOException {
+
+        HttpClientContext requestContext = null;
+        if (API_HOST.equals(host)) {
+            requestContext = context;
+            if (authenticator != null) {
+                authenticator.configureRequest(httpMethod);
+            }
         }
 
         RequestConfig.Builder requestConfig = RequestConfig.custom();
@@ -772,7 +833,7 @@ public class BitbucketCloudApiClient implements BitbucketApi {
         requestConfig.setSocketTimeout(60 * 1000);
         httpMethod.setConfig(requestConfig.build());
 
-        CloseableHttpResponse response = client.execute(API_HOST, httpMethod, context);
+        CloseableHttpResponse response = client.execute(host, httpMethod, requestContext);
         while (response.getStatusLine().getStatusCode() == API_RATE_LIMIT_CODE) {
             release(httpMethod);
             if (Thread.interrupted()) {
@@ -784,7 +845,7 @@ public class BitbucketCloudApiClient implements BitbucketApi {
              */
             LOGGER.fine("Bitbucket Cloud API rate limit reached, sleeping for 5 sec then retry...");
             Thread.sleep(5000);
-            response = client.execute(API_HOST, httpMethod, context);
+            response = client.execute(host, httpMethod, requestContext);
         }
         return response;
     }
@@ -794,8 +855,23 @@ public class BitbucketCloudApiClient implements BitbucketApi {
      */
     private InputStream getRequestAsInputStream(String path) throws IOException, InterruptedException {
         HttpGet httpget = new HttpGet(path);
+        HttpHost host = null;
+
+        // Extract host from URL, if present
         try {
-            CloseableHttpResponse response =  executeMethod(httpget);
+            URI uri = new URI(path);
+            if (uri.isAbsolute() && ! uri.isOpaque()) {
+                host = HttpHost.create(""+uri.getScheme()+"://"+uri.getAuthority());
+            }
+        } catch (URISyntaxException ex) {
+        }
+        // Use default API Host otherwise
+        if (host == null) {
+            host = API_HOST;
+        }
+
+        try {
+            CloseableHttpResponse response =  executeMethod(host, httpget);
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_NOT_FOUND) {
                 EntityUtils.consume(response.getEntity());
                 response.close();
@@ -821,6 +897,15 @@ public class BitbucketCloudApiClient implements BitbucketApi {
     private String getRequest(String path) throws IOException, InterruptedException {
         try (InputStream inputStream = getRequestAsInputStream(path)){
             return IOUtils.toString(inputStream, StandardCharsets.UTF_8);
+        }
+    }
+
+    private BufferedImage getImageRequest(String path) throws IOException, InterruptedException {
+        try (InputStream inputStream = getRequestAsInputStream(path)) {
+            int length = MAX_AVATAR_LENGTH;
+            BufferedInputStream bis = new BufferedInputStream(inputStream, length);
+            BufferedImage image = ImageIO.read(bis);
+            return image;
         }
     }
 

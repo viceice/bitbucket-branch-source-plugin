@@ -26,7 +26,6 @@ package com.cloudbees.jenkins.plugins.bitbucket;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApiFactory;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketAuthenticator;
-import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketHref;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketRepository;
 import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketTeam;
 import com.cloudbees.jenkins.plugins.bitbucket.client.repository.UserRoleInRepository;
@@ -36,7 +35,6 @@ import com.cloudbees.jenkins.plugins.bitbucket.endpoints.BitbucketEndpointConfig
 import com.cloudbees.jenkins.plugins.bitbucket.server.client.repository.BitbucketServerProject;
 import com.cloudbees.plugins.credentials.CredentialsNameProvider;
 import com.cloudbees.plugins.credentials.common.StandardCredentials;
-import com.damnhandy.uri.template.UriTemplate;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -60,7 +58,6 @@ import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -214,9 +211,10 @@ public class BitbucketSCMNavigator extends SCMNavigator {
         return repoOwner;
     }
 
+    @Override
     @NonNull
-    public List<SCMTrait<?>> getTraits() {
-        return Collections.<SCMTrait<?>>unmodifiableList(traits);
+    public List<SCMTrait<? extends SCMTrait<?>>> getTraits() {
+        return Collections.<SCMTrait<? extends SCMTrait<?>>>unmodifiableList(traits);
     }
 
     @DataBoundSetter
@@ -521,23 +519,14 @@ public class BitbucketSCMNavigator extends SCMNavigator {
             } else {
                 defaultTeamUrl = serverUrl + "/" + team.getName();
             }
-            String teamUrl = StringUtils.defaultIfBlank(getLink(team.getLinks(), "html"), defaultTeamUrl);
+            String teamUrl = StringUtils.defaultIfBlank(team.getLink("html"), defaultTeamUrl);
             String teamDisplayName = StringUtils.defaultIfBlank(team.getDisplayName(), team.getName());
             result.add(new ObjectMetadataAction(
                     teamDisplayName,
                     null,
                     teamUrl
             ));
-            String avatarUrl;
-            if (team instanceof BitbucketServerProject) {
-                avatarUrl = UriTemplate
-                        .fromTemplate(serverUrl + "/rest/api/1.0/projects/{repo}/avatar.png")
-                        .set("repo", repoOwner)
-                        .expand();
-            }else {
-                avatarUrl = getLink(team.getLinks(), "avatar");
-            }
-            result.add(new BitbucketTeamMetadataAction(avatarUrl));
+            result.add(new BitbucketTeamMetadataAction(serverUrl, credentials, team.getName()));
             result.add(new BitbucketLink("icon-bitbucket-logo", teamUrl));
             listener.getLogger().printf("Team: %s%n", HyperlinkNote.encodeTo(teamUrl, teamDisplayName));
         } else {
@@ -547,23 +536,11 @@ public class BitbucketSCMNavigator extends SCMNavigator {
                     null,
                     teamUrl
             ));
-            result.add(new BitbucketTeamMetadataAction(null));
+            result.add(new BitbucketTeamMetadataAction(null, null, null));
             result.add(new BitbucketLink("icon-bitbucket-logo", teamUrl));
             listener.getLogger().println("Could not resolve team details");
         }
         return result;
-    }
-
-    private static String getLink(Map<String, List<BitbucketHref>> links, String name) {
-        if (links == null) {
-            return null;
-        }
-        List<BitbucketHref> hrefs = links.get(name);
-        if (hrefs == null || hrefs.isEmpty()) {
-            return null;
-        }
-        BitbucketHref href = hrefs.get(0);
-        return href == null ? null : href.getHref();
     }
 
     @Symbol("bitbucket")
@@ -664,8 +641,9 @@ public class BitbucketSCMNavigator extends SCMNavigator {
             return result;
         }
 
-        public List<SCMTrait<?>> getTraitsDefaults() {
-            return Arrays.<SCMTrait<?>>asList(
+        @Override
+        public List<SCMTrait<? extends SCMTrait<?>>> getTraitsDefaults() {
+            return Arrays.<SCMTrait<? extends SCMTrait<?>>>asList(
                     new BranchDiscoveryTrait(true, false),
                     new OriginPullRequestDiscoveryTrait(EnumSet.of(ChangeRequestCheckoutStrategy.MERGE)),
                     new ForkPullRequestDiscoveryTrait(EnumSet.of(ChangeRequestCheckoutStrategy.MERGE),

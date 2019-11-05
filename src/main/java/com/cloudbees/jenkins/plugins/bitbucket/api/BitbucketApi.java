@@ -23,6 +23,7 @@
  */
 package com.cloudbees.jenkins.plugins.bitbucket.api;
 
+import com.cloudbees.jenkins.plugins.bitbucket.avatars.AvatarCacheSource.AvatarImage;
 import com.cloudbees.jenkins.plugins.bitbucket.client.repository.UserRoleInRepository;
 import com.cloudbees.jenkins.plugins.bitbucket.filesystem.BitbucketSCMFile;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
@@ -237,6 +238,16 @@ public interface BitbucketApi {
      */
     @CheckForNull
     BitbucketTeam getTeam() throws IOException, InterruptedException;
+
+    /**
+     * Returns the team Avatar of the current owner or {@code null} if the current owner is not a team.
+     *
+     * @return the team profile of the current owner, or {@code null} if {@link #getOwner()} is not a team ID.
+     * @throws IOException  if there was a network communications error.
+     * @throws InterruptedException if interrupted while waiting on remote communications.
+     */
+    @CheckForNull
+    AvatarImage getTeamAvatar() throws IOException, InterruptedException;
 
     /**
      * Returns the repositories where the user has the given role.

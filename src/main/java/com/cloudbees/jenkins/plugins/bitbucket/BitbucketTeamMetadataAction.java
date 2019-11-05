@@ -24,30 +24,114 @@
 
 package com.cloudbees.jenkins.plugins.bitbucket;
 
-import edu.umd.cs.findbugs.annotations.CheckForNull;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApi;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketApiFactory;
+import com.cloudbees.jenkins.plugins.bitbucket.api.BitbucketAuthenticator;
+import com.cloudbees.jenkins.plugins.bitbucket.avatars.AvatarCache;
+import com.cloudbees.jenkins.plugins.bitbucket.avatars.AvatarCacheSource;
+import com.cloudbees.plugins.credentials.common.StandardCredentials;
+import java.io.IOException;
+import java.io.Serializable;
 import java.util.Objects;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import jenkins.authentication.tokens.api.AuthenticationTokens;
 import jenkins.scm.api.metadata.AvatarMetadataAction;
 
 /**
  * Invisible property that retains information about Bitbucket team.
  */
 public class BitbucketTeamMetadataAction extends AvatarMetadataAction {
-    @CheckForNull
-    private final String avatarUrl;
+    /**
+     *
+     */
+    private static final long serialVersionUID = 1L;
 
-    public BitbucketTeamMetadataAction(@CheckForNull String avatarUrl) {
-        this.avatarUrl = avatarUrl;
+    /**
+     * Our logger.
+     */
+    private static final Logger LOGGER = Logger.getLogger(BitbucketTeamMetadataAction.class.getName());
+
+    private final BitbucketAvatarCacheSource avatarSource;
+
+    public BitbucketTeamMetadataAction(String serverUrl, StandardCredentials credentials, String team) {
+        avatarSource = new BitbucketAvatarCacheSource(serverUrl, credentials, team);
     }
 
+    public static class BitbucketAvatarCacheSource implements AvatarCacheSource, Serializable {
+        private static final long serialVersionUID = 1L;
+        private final String serverUrl;
+        private final StandardCredentials credentials;
+        private final String repoOwner;
+
+        public BitbucketAvatarCacheSource(String serverUrl, StandardCredentials credentials, String repoOwner) {
+            this.serverUrl = serverUrl;
+            this.credentials = credentials;
+            this.repoOwner = repoOwner;
+            LOGGER.log(Level.INFO, "Created: {0}", this.toString());
+        }
+
+        @Override
+        public AvatarImage fetch() {
+            BitbucketAuthenticator authenticator = AuthenticationTokens
+                    .convert(BitbucketAuthenticator.authenticationContext(serverUrl), credentials);
+            BitbucketApi bitbucket = BitbucketApiFactory.newInstance(serverUrl, authenticator, repoOwner, null);
+            try {
+                return bitbucket.getTeamAvatar();
+            } catch (IOException e) {
+                LOGGER.log(Level.INFO, "IOException: " + e.getMessage(), e);
+            } catch (InterruptedException e) {
+                LOGGER.log(Level.INFO, "InterruptedException: " + e.getMessage(), e);
+            }
+            return null;
+        }
+
+        @Override
+        public String hashKey() {
+            return "" + serverUrl + "::" + repoOwner + "::" + (credentials != null ? credentials.getId() : "");
+        }
+
+        @Override
+        public boolean canFetch() {
+            return (serverUrl != null && repoOwner != null && !serverUrl.trim().isEmpty()
+                    && !repoOwner.trim().isEmpty());
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(hashKey());
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            BitbucketAvatarCacheSource that = (BitbucketAvatarCacheSource) o;
+            return this.hashKey().equals(that.hashKey());
+        }
+
+        @Override
+        public String toString() {
+            return "BitbucketAvatarSource(" + hashKey() + ")";
+        }
+    }
     /**
      * {@inheritDoc}
      */
     @Override
     public String getAvatarImageOf(String size) {
         // fall back to the generic bitbucket org icon if no avatar provided
-        return avatarUrl == null
+        return avatarSource == null
                 ? avatarIconClassNameImageOf(getAvatarIconClassName(), size)
-                : cachedResizedImageOf(avatarUrl, size);
+                : AvatarCache.buildUrl(avatarSource, size);
     }
 
 
@@ -56,7 +140,7 @@ public class BitbucketTeamMetadataAction extends AvatarMetadataAction {
      */
     @Override
     public String getAvatarIconClassName() {
-        return avatarUrl == null ? "icon-bitbucket-logo" : null;
+        return avatarSource == null ? "icon-bitbucket-logo" : null;
     }
 
     /**
@@ -80,8 +164,10 @@ public class BitbucketTeamMetadataAction extends AvatarMetadataAction {
         }
 
         BitbucketTeamMetadataAction that = (BitbucketTeamMetadataAction) o;
-
-        return Objects.equals(avatarUrl, that.avatarUrl);
+        if (this.avatarSource == null) {
+            return that.avatarSource == null;
+        }
+        return this.avatarSource.equals(that.avatarSource);
     }
 
     /**
@@ -89,7 +175,7 @@ public class BitbucketTeamMetadataAction extends AvatarMetadataAction {
      */
     @Override
     public int hashCode() {
-        return Objects.hashCode(avatarUrl);
+        return Objects.hashCode(avatarSource);
     }
 
     /**
@@ -98,7 +184,7 @@ public class BitbucketTeamMetadataAction extends AvatarMetadataAction {
     @Override
     public String toString() {
         return "BitbucketTeamMetadataAction{" +
-                ", avatarUrl='" + avatarUrl + '\'' +
+                ", avatarSource='" + avatarSource + '\'' +
                 '}';
     }
 }
