@@ -46,26 +46,21 @@ import org.kohsuke.stapler.DataBoundConstructor;
  * @since 2.2.11
  */
 public class TagDiscoveryTrait extends SCMSourceTrait {
-
     /**
      * Constructor for stapler.
-     *
      */
     @DataBoundConstructor
     public TagDiscoveryTrait() {
-        //empty
     }
-
 
     /**
      * {@inheritDoc}
      */
     @Override
     protected void decorateContext(SCMSourceContext<?, ?> context) {
-        if (context instanceof BitbucketSCMSourceContext) {
-            BitbucketSCMSourceContext ctx = (BitbucketSCMSourceContext) context;
-            ctx.wantTags(true).withAuthority(new TagSCMHeadAuthority());
-        }
+        BitbucketSCMSourceContext ctx = (BitbucketSCMSourceContext) context;
+        ctx.wantTags(true);
+        ctx.withAuthority(new TagSCMHeadAuthority());
     }
 
     /**
@@ -107,13 +102,12 @@ public class TagDiscoveryTrait extends SCMSourceTrait {
         public Class<? extends SCMSource> getSourceClass() {
             return BitbucketSCMSource.class;
         }
-
     }
 
     /**
      * Trusts tags from the origin repository.
      */
-    public static class TagSCMHeadAuthority  extends SCMHeadAuthority<SCMSourceRequest, BitbucketTagSCMHead, GitTagSCMRevision> {
+    public static class TagSCMHeadAuthority extends SCMHeadAuthority<SCMSourceRequest, BitbucketTagSCMHead, GitTagSCMRevision> {
         /**
          * {@inheritDoc}
          */

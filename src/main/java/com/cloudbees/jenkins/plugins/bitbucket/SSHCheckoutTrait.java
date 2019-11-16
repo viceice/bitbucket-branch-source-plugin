@@ -36,7 +36,6 @@ import hudson.Extension;
 import hudson.Util;
 import hudson.model.Item;
 import hudson.model.Queue;
-import hudson.model.queue.Tasks;
 import hudson.plugins.git.GitSCM;
 import hudson.plugins.mercurial.MercurialSCM;
 import hudson.plugins.mercurial.MercurialSCMBuilder;
@@ -152,8 +151,7 @@ public class SSHCheckoutTrait extends SCMSourceTrait {
          */
         @Override
         public boolean isApplicableToBuilder(@NonNull Class<? extends SCMBuilder> builderClass) {
-            return BitbucketGitSCMBuilder.class.isAssignableFrom(builderClass)
-                    || BitbucketHgSCMBuilder.class.isAssignableFrom(builderClass);
+            return BitbucketGitSCMBuilder.class.isAssignableFrom(builderClass) || BitbucketHgSCMBuilder.class.isAssignableFrom(builderClass);
         }
 
         /**
@@ -186,7 +184,7 @@ public class SSHCheckoutTrait extends SCMSourceTrait {
             result.add(Messages.SSHCheckoutTrait_useAgentKey(), "");
             return result.includeMatchingAs(
                     context instanceof Queue.Task
-                            ? Tasks.getDefaultAuthenticationOf((Queue.Task) context)
+                            ? ((Queue.Task) context).getDefaultAuthentication()
                             : ACL.SYSTEM,
                     context,
                     StandardUsernameCredentials.class,
@@ -217,20 +215,23 @@ public class SSHCheckoutTrait extends SCMSourceTrait {
                 // use agent key
                 return FormValidation.ok();
             }
-            if (CredentialsMatchers.firstOrNull(CredentialsProvider.lookupCredentials(SSHUserPrivateKey.class, context, context instanceof Queue.Task
-                    ? Tasks.getDefaultAuthenticationOf((Queue.Task) context)
-                    : ACL.SYSTEM, URIRequirementBuilder.fromUri(serverUrl).build()), CredentialsMatchers.withId(value)) != null) {
+            if (CredentialsMatchers.firstOrNull(CredentialsProvider.lookupCredentials(
+                    SSHUserPrivateKey.class,
+                    context,
+                    context instanceof Queue.Task ? ((Queue.Task) context).getDefaultAuthentication() : ACL.SYSTEM,
+                    URIRequirementBuilder.fromUri(serverUrl).build()),
+                    CredentialsMatchers.withId(value)) != null) {
                 return FormValidation.ok();
             }
-            if (CredentialsMatchers.firstOrNull(CredentialsProvider
-                            .lookupCredentials(StandardUsernameCredentials.class, context, context instanceof Queue.Task
-                                    ? Tasks.getDefaultAuthenticationOf((Queue.Task) context)
-                                    : ACL.SYSTEM, URIRequirementBuilder.fromUri(serverUrl).build()),
+            if (CredentialsMatchers.firstOrNull(CredentialsProvider.lookupCredentials(
+                    StandardUsernameCredentials.class,
+                    context,
+                    context instanceof Queue.Task ? ((Queue.Task) context).getDefaultAuthentication() : ACL.SYSTEM,
+                    URIRequirementBuilder.fromUri(serverUrl).build()),
                     CredentialsMatchers.withId(value)) != null) {
                 return FormValidation.error(Messages.SSHCheckoutTrait_incompatibleCredentials());
             }
             return FormValidation.warning(Messages.SSHCheckoutTrait_missingCredentials());
         }
-
     }
 }
