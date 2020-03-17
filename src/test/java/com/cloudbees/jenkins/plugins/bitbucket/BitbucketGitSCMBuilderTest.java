@@ -899,7 +899,7 @@ public class BitbucketGitSCMBuilderTest {
         assertThat(actual.getUserRemoteConfigs(), hasSize(1));
         UserRemoteConfig config = actual.getUserRemoteConfigs().get(0);
         assertThat(config.getName(), is("origin"));
-        assertThat(config.getRefspec(), is("+refs/heads/qa-branch:refs/remotes/origin/qa-branch"));
+        assertThat(config.getRefspec(), is("+refs/heads/qa-branch:refs/remotes/origin/PR-1"));
         assertThat(config.getUrl(), is("https://bitbucket.org/qa/qa-repo.git"));
         assertThat(config.getCredentialsId(), is("user-pass"));
         RemoteConfig origin = actual.getRepositoryByName("origin");
