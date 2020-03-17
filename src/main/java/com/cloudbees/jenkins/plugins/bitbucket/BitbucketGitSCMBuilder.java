@@ -106,7 +106,7 @@ public class BitbucketGitSCMBuilder extends GitSCMBuilder<BitbucketGitSCMBuilder
             } else {
                 // https://community.atlassian.com/t5/Bitbucket-questions/Difference-of-refs-pull-requests-lt-ID-gt-merge-and-refs-pull/qaq-p/772142
                 String branchName = ((PullRequestSCMHead) head).getBranchName();
-                withRefSpec("+refs/heads/" + branchName + ":refs/remotes/@{remote}/" + head.getName());
+                withRefSpec("+refs/heads/" + branchName + ":refs/remotes/@{remote}/" + branchName);
             }
         } else if (head instanceof TagSCMHead ){
             withRefSpec("+refs/tags/" + head.getName() + ":refs/tags/" + head.getName());
