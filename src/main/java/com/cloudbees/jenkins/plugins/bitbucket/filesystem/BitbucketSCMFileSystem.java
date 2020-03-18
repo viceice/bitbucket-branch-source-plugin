@@ -178,8 +178,8 @@ public class BitbucketSCMFileSystem extends SCMFileSystem {
                 } else if (pr.getCheckoutStrategy() == ChangeRequestCheckoutStrategy.HEAD) {
                     ref = "heads/" + pr.getBranchName();
                 } else if (pr.getCheckoutStrategy() == ChangeRequestCheckoutStrategy.MERGE) {
-                    // No longer supported
-                    ref = null;
+                    // No longer supported since bitbucket server v7, falls back to heavycheckout
+                    ref = "pull-requests/" + pr.getId() + "/merge";
                 }
             } else if (head instanceof BitbucketTagSCMHead) {
                 ref = "tags/" + head.getName();
