@@ -615,8 +615,8 @@ public class BitbucketServerAPIClient implements BitbucketApi {
             case NATIVE:
                 postRequest(
                         UriTemplate
-                            .fromTemplate(API_WEBHOOKS_PATH).
-                            set("owner", getUserCentricOwner())
+                            .fromTemplate(API_WEBHOOKS_PATH)
+                            .set("owner", getUserCentricOwner())
                             .set("repo", repositoryName)
                             .expand(),
                         JsonParser.toJson(hook)
@@ -650,8 +650,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
                             .set("owner", getUserCentricOwner())
                             .set("repo", repositoryName)
                             .set("id", hook.getUuid())
-                            .expand(),
-                        JsonParser.toJson(hook)
+                            .expand(), JsonParser.toJson(hook)
                     );
                 break;
 
