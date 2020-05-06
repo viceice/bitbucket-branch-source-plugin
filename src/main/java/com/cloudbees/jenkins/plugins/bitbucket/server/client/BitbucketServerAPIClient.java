@@ -339,13 +339,18 @@ public class BitbucketServerAPIClient implements BitbucketApi {
 
         AbstractBitbucketEndpoint endpointConfig = BitbucketEndpointConfiguration.get().findEndpoint(baseURL);
         if (endpointConfig instanceof BitbucketServerEndpoint) {
+            final BitbucketServerEndpoint endpoint = (BitbucketServerEndpoint) endpointConfig;
+            if (!endpoint.isCallCanMerge() && !endpoint.isCallChanges()) {
+                return pullRequests;
+            }
+
             // This is required for Bitbucket Server to update the refs/pull-requests/* references
             // See https://community.atlassian.com/t5/Bitbucket-questions/Change-pull-request-refs-after-Commit-instead-of-after-Approval/qaq-p/194702#M6829
             for (BitbucketServerPullRequest pullRequest : pullRequests) {
-                if (((BitbucketServerEndpoint) endpointConfig).isCallCanMerge()) {
+                if (endpoint.isCallCanMerge()) {
                     pullRequest.setCanMerge(getPullRequestCanMergeById(Integer.parseInt(pullRequest.getId())));
                 }
-                if (((BitbucketServerEndpoint) endpointConfig).isCallChanges()) {
+                if (endpoint.isCallChanges()) {
                     callPullRequestChangesById(Integer.parseInt(pullRequest.getId()));
                 }
             }
