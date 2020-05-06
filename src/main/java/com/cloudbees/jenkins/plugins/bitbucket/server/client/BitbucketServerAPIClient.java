@@ -348,10 +348,10 @@ public class BitbucketServerAPIClient implements BitbucketApi {
             // See https://community.atlassian.com/t5/Bitbucket-questions/Change-pull-request-refs-after-Commit-instead-of-after-Approval/qaq-p/194702#M6829
             for (BitbucketServerPullRequest pullRequest : pullRequests) {
                 if (endpoint.isCallCanMerge()) {
-                    pullRequest.setCanMerge(getPullRequestCanMergeById(Integer.parseInt(pullRequest.getId())));
+                    pullRequest.setCanMerge(getPullRequestCanMergeById(pullRequest.getId()));
                 }
                 if (endpoint.isCallChanges()) {
-                    callPullRequestChangesById(Integer.parseInt(pullRequest.getId()));
+                    callPullRequestChangesById(pullRequest.getId());
                 }
             }
         }
@@ -392,7 +392,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         }
     }
 
-    private void callPullRequestChangesById(@NonNull Integer id) throws IOException {
+    private void callPullRequestChangesById(@NonNull String id) throws IOException {
         String url = UriTemplate
                 .fromTemplate(API_PULL_REQUEST_CHANGES_PATH)
                 .set("owner", getUserCentricOwner())
@@ -402,7 +402,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
         getRequest(url);
     }
 
-    private boolean getPullRequestCanMergeById(@NonNull Integer id) throws IOException {
+    private boolean getPullRequestCanMergeById(@NonNull String id) throws IOException {
         String url = UriTemplate
                 .fromTemplate(API_PULL_REQUEST_MERGE_PATH)
                 .set("owner", getUserCentricOwner())
