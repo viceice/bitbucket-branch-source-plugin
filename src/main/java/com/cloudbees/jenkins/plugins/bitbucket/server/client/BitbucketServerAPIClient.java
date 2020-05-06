@@ -471,7 +471,10 @@ public class BitbucketServerAPIClient implements BitbucketApi {
                 .set("repo", repositoryName)
                 .set("hash", hash)
                 .expand(),
-            Collections.singletonList(new BasicNameValuePair("text", comment)));
+            Collections.singletonList(
+                new BasicNameValuePair("text", comment)
+            )
+        );
     }
 
     /**
@@ -484,7 +487,8 @@ public class BitbucketServerAPIClient implements BitbucketApi {
                 .fromTemplate(API_COMMIT_STATUS_PATH)
                 .set("hash", status.getHash())
                 .expand(),
-            JsonParser.toJson(status));
+            JsonParser.toJson(status)
+        );
     }
 
     /**
@@ -604,7 +608,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
                             .set("owner", getUserCentricOwner())
                             .set("repo", repositoryName)
                             .expand(),
-                            JsonParser.toJson(hook)
+                        JsonParser.toJson(hook)
                     );
                 break;
 
@@ -615,7 +619,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
                             set("owner", getUserCentricOwner())
                             .set("repo", repositoryName)
                             .expand(),
-                            JsonParser.toJson(hook)
+                        JsonParser.toJson(hook)
                     );
                 break;
 
@@ -635,8 +639,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
                             .set("owner", getUserCentricOwner())
                             .set("repo", repositoryName)
                             .set("id", hook.getUuid())
-                            .expand(),
-                        JsonParser.toJson(hook)
+                            .expand(), JsonParser.toJson(hook)
                     );
                 break;
 
@@ -669,7 +672,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
                             .set("repo", repositoryName)
                             .set("id", hook.getUuid())
                             .expand()
-                        );
+                    );
                 break;
 
             case NATIVE:
@@ -680,7 +683,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
                             .set("repo", repositoryName)
                             .set("id", hook.getUuid())
                             .expand()
-                        );
+                    );
                 break;
 
             default:
@@ -1018,7 +1021,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
             authenticator.configureRequest(request);
         }
 
-        try (CloseableHttpClient client = getHttpClient(request);
+        try(CloseableHttpClient client = getHttpClient(request);
                 CloseableHttpResponse response = client.execute(request, context)) {
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_NO_CONTENT) {
                 EntityUtils.consume(response.getEntity());
@@ -1079,7 +1082,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
     @Override
     public Iterable<SCMFile> getDirectoryContent(BitbucketSCMFile directory) throws IOException, InterruptedException {
         List<SCMFile> files = new ArrayList<>();
-        int start = 0;
+        int start=0;
         UriTemplate template = UriTemplate
                 .fromTemplate(API_BROWSE_PATH + "{&start,limit}")
                 .set("owner", getUserCentricOwner())
@@ -1090,7 +1093,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
                 .set("limit", 500);
         String url = template.expand();
         String response = getRequest(url);
-        Map<String, Object> content = JsonParser.mapper.readValue(response, new TypeReference<Map<String, Object>>() {});
+        Map<String,Object> content = JsonParser.mapper.readValue(response, new TypeReference<Map<String,Object>>(){});
         Map page = (Map) content.get("children");
         List<Map> values = (List<Map>) page.get("values");
         collectFileAndDirectories(directory, values, files);
@@ -1100,14 +1103,14 @@ public class BitbucketServerAPIClient implements BitbucketApi {
                     .set("start", start)
                     .expand();
             response = getRequest(url);
-            content = JsonParser.mapper.readValue(response, new TypeReference<Map<String, Object>>() {});
+            content = JsonParser.mapper.readValue(response, new TypeReference<Map<String,Object>>(){});
             page = (Map) content.get("children");
         }
         return files;
     }
 
     private void collectFileAndDirectories(BitbucketSCMFile parent, List<Map> values, List<SCMFile> files) {
-        for(Map file: values) {
+        for(Map file:values) {
             String type = (String) file.get("type");
             List<String> components = (List<String>) ((Map)file.get("path")).get("components");
             SCMFile.Type fileType = null;
@@ -1116,7 +1119,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
             } else if(type.equals("DIRECTORY")){
                 fileType = SCMFile.Type.DIRECTORY;
             }
-            if (components.size() > 0 && fileType != null) {
+            if(components.size() > 0 && fileType != null){
                 // revision is set to null as fetched values from server API do not give us revision hash
                 // Later on hash is not needed anyways when file content is fetched from server API
                 files.add(new BitbucketSCMFile(parent, components.get(0), fileType, null));
@@ -1127,7 +1130,7 @@ public class BitbucketServerAPIClient implements BitbucketApi {
     @Override
     public InputStream getFileContent(BitbucketSCMFile file) throws IOException, InterruptedException {
         List<String> lines = new ArrayList<>();
-        int start = 0;
+        int start=0;
         UriTemplate template = UriTemplate
                 .fromTemplate(API_BROWSE_PATH + "{&start,limit}")
                 .set("owner", getUserCentricOwner())
@@ -1152,10 +1155,9 @@ public class BitbucketServerAPIClient implements BitbucketApi {
     }
 
     private Map<String,Object> collectLines(String response, final List<String> lines) throws IOException {
-        Map<String,Object> content = JsonParser.mapper.readValue(response, new TypeReference<Map<String,Object>>() {
-        });
+        Map<String,Object> content = JsonParser.mapper.readValue(response, new TypeReference<Map<String,Object>>(){});
         List<Map<String, String>> lineMap = (List<Map<String, String>>) content.get("lines");
-        for(Map<String,String> line: lineMap) {
+        for(Map<String,String> line: lineMap){
             String text = line.get("text");
             if(text != null){
                 lines.add(text);
