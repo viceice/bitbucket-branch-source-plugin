@@ -176,7 +176,7 @@ public class BitbucketSCMFileSystem extends SCMFileSystem {
                         return null;
                     }
                 } else if (pr.getCheckoutStrategy() == ChangeRequestCheckoutStrategy.HEAD) {
-                    ref = "heads/" + pr.getBranchName();
+                    ref = "pull-requests/" + pr.getId() + "/from";
                 } else if (pr.getCheckoutStrategy() == ChangeRequestCheckoutStrategy.MERGE) {
                     // No longer supported since bitbucket server v7, falls back to heavycheckout
                     ref = "pull-requests/" + pr.getId() + "/merge";
