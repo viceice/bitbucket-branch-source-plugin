@@ -245,6 +245,12 @@ public class BitbucketCloudApiClient implements BitbucketApi {
             case GIT:
                 switch (protocol) {
                     case HTTP:
+                        if (authenticator != null) {
+                            String username = authenticator.getUserUri();
+                            if (!username.isEmpty()) {
+                                return "https://" + username + "@bitbucket.org/" + owner + "/" + repository + ".git";
+                            }
+                        }
                         return "https://bitbucket.org/" + owner + "/" + repository + ".git";
                     case SSH:
                         return "git@bitbucket.org:" + owner + "/" + repository + ".git";
@@ -299,6 +305,9 @@ public class BitbucketCloudApiClient implements BitbucketApi {
             }
             pullRequests.addAll(page.getValues());
         } while (page.getNext() != null);
+
+        // PRs with missing destination branch are invalid and should be ignored.
+        pullRequests.removeIf(pr -> pr.getDestination().getBranch() == null);
 
         for (BitbucketPullRequestValue pullRequest : pullRequests) {
             setupClosureForPRBranch(pullRequest);
