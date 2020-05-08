@@ -25,7 +25,7 @@ as a multi-branch project source in two different ways:
 [id=bitbucket-server-7]
 == BitBucket Server 7 compatibility
 
-_BitBucket Server 7.x_ is supported but does no longer support lightweight checkout for pull requests.
+_BitBucket Server 7.x_ is supported but does no longer support lightweight checkout for pull requests when merge strategy is used for build.
 
 IMPORTANT: In order to have the pull request process working the "Call Changes api" option must be
 enabled in _Manage Jenkins_ » _Configure System_
